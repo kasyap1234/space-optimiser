@@ -1,0 +1,11 @@
+{
+  "items": [
+    {"id": "item-b", "w": 20, "h": 20, "d": 20, "quantity": 1},
+    {"id": "item-a", "w": 10, "h": 10, "d": 10, "quantity": 2},
+    {"id": "item-c", "w": 5, "h": 5, "d": 5, "quantity": 5}
+  ],
+  "boxes": [
+    {"id": "box-small", "w": 15, "h": 15, "d": 15},
+    {"id": "box-large", "w": 30, "h": 30, "d": 30}
+  ]
+}

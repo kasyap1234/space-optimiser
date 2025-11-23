@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Bin Packing Visualization</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --sidebar-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #4a90e2;
+            --accent-hover: #357abd;
+            --border-color: #444;
+        }
+
+        body {
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        #sidebar {
+            width: 320px;
+            padding: 25px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        #canvas-container {
+            flex-grow: 1;
+            background: var(--bg-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 15px;
+            background: #222;
+            border: 1px solid var(--border-color);
+            color: #cfcfcf;
+            padding: 10px;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        button {
+            padding: 12px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        #stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        #stats strong {
+            color: #fff;
+        }
+
+        .box-select {
+            width: 100%;
+            padding: 8px;
+            background: #222;
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            border: 1px solid #555;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div id="sidebar">
+        <h2>Bin Packer</h2>
+        <label for="jsonInput">Input JSON</label>
+        <textarea id="jsonInput">
+{
+  "items": [
+    {"id": "item-b", "w": 20, "h": 20, "d": 20, "quantity": 1},
+    {"id": "item-a", "w": 10, "h": 10, "d": 10, "quantity": 2},
+    {"id": "item-c", "w": 5, "h": 5, "d": 5, "quantity": 5}
+  ],
+  "boxes": [
+    {"id": "box-small", "w": 15, "h": 15, "d": 15},
+    {"id": "box-large", "w": 30, "h": 30, "d": 30}
+  ]
+}
+        </textarea>
+        <button id="packBtn">Pack & Visualize</button>
+        <div id="stats"></div>
+        <div id="box-controls" style="display:none; margin-top: 20px;">
+            <label>View Box:</label>
+            <select id="boxSelect" class="box-select"></select>
+        </div>
+    </div>
+    <div id="canvas-container">
+        <div id="tooltip"></div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let currentMeshes = [];
+        let raycaster, mouse;
+        let hoveredItem = null;
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+            // Add some fog for depth
+            scene.fog = new THREE.Fog(0x1a1a1a, 50, 200);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(60, 40, 60);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(50, 100, 50);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x4a90e2, 0.3);
+            fillLight.position.set(-50, 20, -50);
+            scene.add(fillLight);
+
+            // Floor
+            const planeGeometry = new THREE.PlaneGeometry(200, 200);
+            const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = -Math.PI / 2;
+            plane.position.y = -0.1;
+            plane.receiveShadow = true;
+            scene.add(plane);
+
+            // Grid Helper
+            const gridHelper = new THREE.GridHelper(200, 50, 0x444444, 0x222222);
+            scene.add(gridHelper);
+
+            // Raycaster
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize);
+            container.addEventListener('mousemove', onMouseMove);
+            animate();
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function onMouseMove(event) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+            // Update tooltip position
+            const tooltip = document.getElementById('tooltip');
+            if (hoveredItem) {
+                tooltip.style.left = (event.clientX + 15) + 'px';
+                tooltip.style.top = (event.clientY + 15) + 'px';
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Raycasting
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(currentMeshes);
+
+            const tooltip = document.getElementById('tooltip');
+
+            if (intersects.length > 0) {
+                // Find the first object that is an item (userData has info)
+                const hit = intersects.find(i => i.object.userData && i.object.userData.isItem);
+
+                if (hit) {
+                    const item = hit.object.userData;
+                    if (hoveredItem !== hit.object) {
+                        // Reset previous
+                        if (hoveredItem) hoveredItem.material.emissive.setHex(0x000000);
+
+                        hoveredItem = hit.object;
+                        hoveredItem.material.emissive.setHex(0x333333); // Highlight
+
+                        tooltip.style.display = 'block';
+                        tooltip.innerHTML = `
+                            <strong>ID:</strong> ${item.id}<br>
+                            <strong>Dims:</strong> ${item.w} x ${item.h} x ${item.d}<br>
+                            <strong>Pos:</strong> ${item.x}, ${item.y}, ${item.z}
+                        `;
+                    }
+                } else {
+                    if (hoveredItem) {
+                        hoveredItem.material.emissive.setHex(0x000000);
+                        hoveredItem = null;
+                        tooltip.style.display = 'none';
+                    }
+                }
+            } else {
+                if (hoveredItem) {
+                    hoveredItem.material.emissive.setHex(0x000000);
+                    hoveredItem = null;
+                    tooltip.style.display = 'none';
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function clearScene() {
+            currentMeshes.forEach(mesh => scene.remove(mesh));
+            currentMeshes = [];
+        }
+
+        function getRandomColor(id) {
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = id.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+            return '#' + '00000'.substring(0, 6 - c.length) + c;
+        }
+
+        function drawBox(w, h, d) {
+            // Glass Box
+            const geometry = new THREE.BoxGeometry(w, h, d);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                metalness: 0,
+                roughness: 0,
+                transmission: 0.2, // Glass-like
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide,
+                depthWrite: false // Allow seeing items inside clearly
+            });
+
+            const boxMesh = new THREE.Mesh(geometry, material);
+            boxMesh.position.set(w / 2, h / 2, d / 2);
+            boxMesh.userData = { isBox: true };
+
+            scene.add(boxMesh);
+            currentMeshes.push(boxMesh);
+
+            // Edges
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x666666 }));
+            line.position.copy(boxMesh.position);
+            scene.add(line);
+            currentMeshes.push(line);
+        }
+
+        function drawItem(item) {
+            const geometry = new THREE.BoxGeometry(item.w, item.h, item.d);
+            const color = getRandomColor(item.item_id);
+
+            const material = new THREE.MeshLambertMaterial({
+                color: color,
+            });
+
+            const cube = new THREE.Mesh(geometry, material);
+
+            // Position: item.x,y,z is bottom-left-back. Three.js is center.
+            cube.position.set(
+                item.x + item.w / 2,
+                item.y + item.h / 2,
+                item.z + item.d / 2
+            );
+
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+
+            // Store data for tooltip
+            cube.userData = {
+                isItem: true,
+                id: item.item_id,
+                w: item.w, h: item.h, d: item.d,
+                x: item.x, y: item.y, z: item.z
+            };
+
+            // Edges for definition
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, opacity: 0.3, transparent: true }));
+            line.position.copy(cube.position);
+
+            scene.add(cube);
+            scene.add(line);
+            currentMeshes.push(cube);
+            currentMeshes.push(line);
+        }
+
+        async function pack() {
+            const input = document.getElementById('jsonInput').value;
+            let data;
+            try {
+                data = JSON.parse(input);
+            } catch (e) {
+                alert("Invalid JSON");
+                return;
+            }
+
+            const btn = document.getElementById('packBtn');
+            btn.textContent = "Packing...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/pack', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!res.ok) {
+                    alert("Error packing: " + await res.text());
+                    return;
+                }
+
+                const result = await res.json();
+
+                // Update Stats
+                document.getElementById('stats').innerHTML = `
+                    <strong>Total Volume:</strong> ${result.total_volume}<br>
+                    <strong>Utilization:</strong> ${result.utilization_percent.toFixed(2)}%<br>
+                    <strong>Unpacked Items:</strong> ${result.unpacked_items ? result.unpacked_items.length : 0}
+                `;
+
+                // Handle multiple packed boxes
+                const boxSelect = document.getElementById('boxSelect');
+                boxSelect.innerHTML = '';
+
+                if (result.packed_boxes.length > 0) {
+                    document.getElementById('box-controls').style.display = 'block';
+                    result.packed_boxes.forEach((box, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.text = `Box ${box.box_id} (${index + 1})`;
+                        boxSelect.appendChild(option);
+                    });
+
+                    // Render first box
+                    renderBox(result.packed_boxes[0], data.boxes);
+
+                    boxSelect.onchange = (e) => {
+                        renderBox(result.packed_boxes[e.target.value], data.boxes);
+                    };
+                } else {
+                    clearScene();
+                    alert("No items packed!");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred.");
+            } finally {
+                btn.textContent = "Pack & Visualize";
+                btn.disabled = false;
+            }
+        }
+
+        function renderBox(packedBox, availableBoxes) {
+            clearScene();
+
+            // Find box dimensions
+            const boxDef = availableBoxes.find(b => b.id === packedBox.box_id);
+            if (boxDef) {
+                drawBox(boxDef.w, boxDef.h, boxDef.d);
+
+                // Adjust camera to fit box
+                const maxDim = Math.max(boxDef.w, boxDef.h, boxDef.d);
+                // Smoothly animate camera? For now just set it.
+                // camera.position.set(maxDim*1.5, maxDim*1.5, maxDim*1.5);
+                // controls.target.set(boxDef.w/2, boxDef.h/2, boxDef.d/2);
+                // controls.update();
+            }
+
+            packedBox.contents.forEach(item => {
+                drawItem(item);
+            });
+        }
+
+        document.getElementById('packBtn').addEventListener('click', pack);
+        init();
+    </script>
+</body>
+
+</html>
