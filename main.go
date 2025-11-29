@@ -31,11 +31,79 @@ const (
 	CleanupInterval    = 1 * time.Minute // How often to run cleanup
 )
 
+// Subscription tiers for RapidAPI
+type SubscriptionTier string
+
+const (
+	TierBASIC SubscriptionTier = "basic"
+	TierPRO   SubscriptionTier = "pro"
+	TierULTRA SubscriptionTier = "ultra"
+	TierMEGA  SubscriptionTier = "mega"
+)
+
+// TierConfig defines usage limits per tier
+type TierConfig struct {
+	MaxItems       int
+	MaxBoxes       int
+	Timeout        time.Duration
+	VisualizationTTL time.Duration
+	MaxBodySize    int64
+	AllowVisualization bool
+}
+
+var tierConfigs = map[SubscriptionTier]TierConfig{
+	TierBASIC: {
+		MaxItems:       50,
+		MaxBoxes:       10,
+		Timeout:        10 * time.Second,
+		VisualizationTTL: 0,
+		MaxBodySize:    1 * 1024 * 1024, // 1 MB
+		AllowVisualization: false,
+	},
+	TierPRO: {
+		MaxItems:       200,
+		MaxBoxes:       30,
+		Timeout:        20 * time.Second,
+		VisualizationTTL: 2 * time.Minute,
+		MaxBodySize:    5 * 1024 * 1024, // 5 MB
+		AllowVisualization: true,
+	},
+	TierULTRA: {
+		MaxItems:       500,
+		MaxBoxes:       60,
+		Timeout:        30 * time.Second,
+		VisualizationTTL: 5 * time.Minute,
+		MaxBodySize:    10 * 1024 * 1024, // 10 MB
+		AllowVisualization: true,
+	},
+	TierMEGA: {
+		MaxItems:       1000,
+		MaxBoxes:       100,
+		Timeout:        30 * time.Second,
+		VisualizationTTL: 10 * time.Minute,
+		MaxBodySize:    10 * 1024 * 1024, // 10 MB
+		AllowVisualization: true,
+	},
+}
+
+// DefaultTierConfig is used for unknown/missing subscriptions
+func getDefaultTierConfig() TierConfig {
+	return tierConfigs[TierBASIC]
+}
+
 var (
 	AllowedOrigins = getEnv("ALLOWED_ORIGINS", "*") // Configurable CORS
 	handlerOnce    sync.Once
 	appHandler     http.Handler
+	RapidAPISecret = getEnv("RAPIDAPI_PROXY_SECRET", "") // Optional RapidAPI secret for validation
 )
+
+// Context keys for request data
+const (
+	contextKeyTier contextKey = "tier"
+)
+
+type contextKey string
 
 // --- Visualization Cache ---
 
@@ -115,6 +183,48 @@ func generateID() string {
 	return hex.EncodeToString(bytes)
 }
 
+// extractTierFromRequest gets the subscription tier from RapidAPI headers
+func extractTierFromRequest(r *http.Request) SubscriptionTier {
+	// Check for RapidAPI subscription header
+	subscription := r.Header.Get("X-RapidAPI-Subscription")
+	
+	// Normalize to lowercase
+	subscription = strings.ToLower(strings.TrimSpace(subscription))
+	
+	// Validate subscription type
+	switch subscription {
+	case "pro":
+		return TierPRO
+	case "ultra":
+		return TierULTRA
+	case "mega":
+		return TierMEGA
+	case "basic", "free":
+		return TierBASIC
+	default:
+		// Default to BASIC for unknown or missing subscription
+		return TierBASIC
+	}
+}
+
+// getTierFromContext retrieves the tier from request context
+func getTierFromContext(r *http.Request) SubscriptionTier {
+	tier, ok := r.Context().Value(contextKeyTier).(SubscriptionTier)
+	if !ok {
+		return TierBASIC
+	}
+	return tier
+}
+
+// getTierConfig retrieves the configuration for a specific tier
+func getTierConfig(tier SubscriptionTier) TierConfig {
+	config, exists := tierConfigs[tier]
+	if !exists {
+		return getDefaultTierConfig()
+	}
+	return config
+}
+
 // --- Request/Response Types ---
 
 type PackRequest struct {
@@ -163,13 +273,18 @@ func withMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", AllowedOrigins)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-RapidAPI-Subscription, X-RapidAPI-Proxy-Secret")
 		w.Header().Set("Access-Control-Max-Age", "3600")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+
+		// Extract RapidAPI tier and inject into request context
+		tier := extractTierFromRequest(r)
+		ctx := context.WithValue(r.Context(), contextKeyTier, tier)
+		r = r.WithContext(ctx)
 
 		next.ServeHTTP(w, r)
 	})
@@ -207,7 +322,8 @@ func handlePack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, resp, err := processPackRequest(r)
+	tier := getTierFromContext(r)
+	req, resp, err := processPackRequest(r, tier)
 	if err != nil {
 		handlePackError(w, err)
 		return
@@ -229,10 +345,25 @@ func handleVisualize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, resp, err := processPackRequest(r)
+	tier := getTierFromContext(r)
+	tierConfig := getTierConfig(tier)
+
+	// Check if visualization is allowed for this tier
+	if !tierConfig.AllowVisualization {
+		http.Error(w, "Visualization not available for your subscription tier", http.StatusForbidden)
+		return
+	}
+
+	req, resp, err := processPackRequest(r, tier)
 	if err != nil {
 		handlePackError(w, err)
 		return
+	}
+
+	// Determine cache TTL based on tier
+	cacheTTL := tierConfig.VisualizationTTL
+	if cacheTTL == 0 {
+		cacheTTL = ViewCacheTTL // fallback
 	}
 
 	// Generate unique ID and store in cache
@@ -242,14 +373,14 @@ func handleVisualize(w http.ResponseWriter, r *http.Request) {
 		Request:   *req,
 		Response:  *resp,
 		CreatedAt: now,
-		ExpiresAt: now.Add(ViewCacheTTL),
+		ExpiresAt: now.Add(cacheTTL),
 	}
 	vizCache.Set(id, cached)
 
 	// Return the URL
 	vizResp := VisualizeResponse{
 		URL:              "/view/" + id,
-		ExpiresInSeconds: int(ViewCacheTTL.Seconds()),
+		ExpiresInSeconds: int(cacheTTL.Seconds()),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -292,9 +423,12 @@ func handleView(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// processPackRequest handles common request parsing and packing logic
-func processPackRequest(r *http.Request) (*PackRequest, *PackResponse, error) {
-	r.Body = http.MaxBytesReader(nil, r.Body, MaxRequestBodySize)
+// processPackRequest handles common request parsing and packing logic with tier-specific limits
+func processPackRequest(r *http.Request, tier SubscriptionTier) (*PackRequest, *PackResponse, error) {
+	tierConfig := getTierConfig(tier)
+
+	// Apply tier-specific body size limit
+	r.Body = http.MaxBytesReader(nil, r.Body, tierConfig.MaxBodySize)
 	defer r.Body.Close()
 
 	decoder := json.NewDecoder(r.Body)
@@ -312,11 +446,13 @@ func processPackRequest(r *http.Request) (*PackRequest, *PackResponse, error) {
 		return nil, nil, &packError{code: http.StatusBadRequest, msg: "Items and boxes are required"}
 	}
 
-	if err := ValidateInputs(req.Items, req.Boxes); err != nil {
+	// Validate with tier-specific limits
+	if err := ValidateInputs(req.Items, req.Boxes, tierConfig.MaxItems, tierConfig.MaxBoxes); err != nil {
 		return nil, nil, &packError{code: http.StatusBadRequest, msg: fmt.Sprintf("Validation error: %v", err)}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), PackTimeout)
+	// Use tier-specific timeout
+	ctx, cancel := context.WithTimeout(context.Background(), tierConfig.Timeout)
 	defer cancel()
 
 	type packResult struct {

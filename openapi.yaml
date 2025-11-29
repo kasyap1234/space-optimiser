@@ -1,0 +1,352 @@
+openapi: 3.1.0
+info:
+  title: Space Optimizer API
+  description: |-
+    High-performance 3D bin packing service using Extreme Points algorithm with multi-strategy optimization.
+    Supports RapidAPI tiers, weight/fragility constraints, rotations, quantities, and interactive 3D visualization.
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: 'https://rapidapi.com'
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://space-optimiser-rapidapi.p.rapidapi.com
+    description: Production (RapidAPI)
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /pack:
+    post:
+      summary: Pack items into optimal boxes
+      operationId: packItems
+      parameters:
+        - $ref: '#/components/parameters/RapidAPISubscription'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackRequest'
+      responses:
+        '200':
+          description: Successful packing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackResponse'
+        '400':
+          description: Bad Request (validation/JSON error)
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  invalidJson:
+                    value: Invalid JSON payload
+                  validation:
+                    value: Validation error: too many items: 100 (max 50)
+                  missing:
+                    value: Items and boxes are required
+        '413':
+          description: Payload Too Large (tier limit)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Request body too large
+        '408':
+          description: Request Timeout (tier timeout exceeded)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Packing operation timed out
+  /visualize:
+    post:
+      summary: Pack and generate shareable 3D visualization (Pro+ tiers)
+      operationId: visualizePacking
+      parameters:
+        - $ref: '#/components/parameters/RapidAPISubscription'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackRequest'
+      responses:
+        '200':
+          description: Visualization URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisualizeResponse'
+        '400':
+          description: Bad Request (validation/JSON error)
+          content:
+            text/plain:
+              schema:
+                type: string
+                examples:
+                  invalidJson:
+                    value: Invalid JSON payload
+                  validation:
+                    value: Validation error: too many items: 100 (max 50)
+                  missing:
+                    value: Items and boxes are required
+        '413':
+          description: Payload Too Large (tier limit)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Request body too large
+        '408':
+          description: Request Timeout (tier timeout exceeded)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Packing operation timed out
+        '403':
+          description: Forbidden (tier lacks visualization)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Visualization not available for your subscription tier
+  /view/{id}:
+    get:
+      summary: Serve interactive 3D visualization
+      operationId: viewVisualization
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique visualization ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: HTML visualization page
+          content:
+            text/html:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request (missing ID)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Missing visualization ID
+        '404':
+          description: Not Found (expired/invalid ID)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Visualization not found or expired
+  /:
+    get:
+      summary: Serve static landing page
+      operationId: serveStatic
+      responses:
+        '200':
+          description: Static HTML/JS/CSS
+          content:
+            text/html:
+              schema:
+                type: string
+                format: binary
+components:
+  schemas:
+    PackRequest:
+      type: object
+      required:
+        - items
+        - boxes
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/InputItem'
+        boxes:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/InputBox'
+    PackResponse:
+      type: object
+      properties:
+        packed_boxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackedBox'
+        unpacked_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputItem'
+        total_volume:
+          type: integer
+          minimum: 0
+          description: Total volume of used boxes
+        utilization_percent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Utilization percentage
+    VisualizeResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          example: /view/abc123def456
+        expires_in_seconds:
+          type: integer
+          minimum: 0
+    InputItem:
+      type: object
+      required:
+        - id
+        - w
+        - h
+        - d
+        - quantity
+      properties:
+        id:
+          type: string
+          minLength: 1
+        w:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        h:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        d:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        weight:
+          type: number
+          format: float
+          minimum: 0
+        fragile:
+          type: boolean
+          default: false
+        priority:
+          type: integer
+          minimum: 0
+          default: 0
+    InputBox:
+      type: object
+      required:
+        - id
+        - w
+        - h
+        - d
+      properties:
+        id:
+          type: string
+          minLength: 1
+        w:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        h:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        d:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        max_weight:
+          type: number
+          format: float
+          minimum: 0
+    PackedBox:
+      type: object
+      required:
+        - box_id
+        - contents
+      properties:
+        box_id:
+          type: string
+        contents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Placement'
+    Placement:
+      type: object
+      required:
+        - item_id
+        - x
+        - y
+        - z
+        - w
+        - h
+        - d
+      properties:
+        item_id:
+          type: string
+        x:
+          type: integer
+          minimum: 0
+        y:
+          type: integer
+          minimum: 0
+        z:
+          type: integer
+          minimum: 0
+        w:
+          type: integer
+          minimum: 1
+        h:
+          type: integer
+          minimum: 1
+        d:
+          type: integer
+          minimum: 1
+        weight:
+          type: number
+          format: float
+          minimum: 0
+        fragile:
+          type: boolean
+  parameters:
+    RapidAPISubscription:
+      name: X-RapidAPI-Subscription
+      in: header
+      description: Subscription tier (basic|pro|ultra|mega)
+      required: false
+      schema:
+        type: string
+        enum:
+          - basic
+          - pro
+          - ultra
+          - mega

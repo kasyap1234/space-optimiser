@@ -138,25 +138,23 @@ func (a byBoxVolumeAsc) Less(i, j int) bool {
 
 // Constants for validation
 const (
-	MaxItems     = 1000
-	MaxBoxes     = 100
 	MaxDimension = 10000
 	MaxQuantity  = 1000
 )
 
-// ValidateInputs checks for invalid dimensions and constraints
-func ValidateInputs(items []InputItem, boxes []InputBox) error {
+// ValidateInputs checks for invalid dimensions and constraints with tier-based limits
+func ValidateInputs(items []InputItem, boxes []InputBox, maxItems, maxBoxes int) error {
 	if len(items) == 0 {
 		return fmt.Errorf("no items provided")
 	}
-	if len(items) > MaxItems {
-		return fmt.Errorf("too many items: %d (max %d)", len(items), MaxItems)
+	if len(items) > maxItems {
+		return fmt.Errorf("too many items: %d (max %d)", len(items), maxItems)
 	}
 	if len(boxes) == 0 {
 		return fmt.Errorf("no boxes provided")
 	}
-	if len(boxes) > MaxBoxes {
-		return fmt.Errorf("too many boxes: %d (max %d)", len(boxes), MaxBoxes)
+	if len(boxes) > maxBoxes {
+		return fmt.Errorf("too many boxes: %d (max %d)", len(boxes), maxBoxes)
 	}
 
 	totalItems := 0
@@ -179,8 +177,8 @@ func ValidateInputs(items []InputItem, boxes []InputBox) error {
 		totalItems += item.Quantity
 	}
 
-	if totalItems > MaxItems {
-		return fmt.Errorf("total items after quantity expansion: %d (max %d)", totalItems, MaxItems)
+	if totalItems > maxItems {
+		return fmt.Errorf("total items after quantity expansion: %d (max %d)", totalItems, maxItems)
 	}
 
 	for i, box := range boxes {
