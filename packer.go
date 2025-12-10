@@ -37,6 +37,7 @@ type Placement struct {
 	D      int    `json:"d"`
 }
 
+// FreeSpace represents an available region in the box
 type FreeSpace struct {
 	X, Y, Z int
 	W, H, D int
@@ -44,6 +45,31 @@ type FreeSpace struct {
 
 func (fs FreeSpace) Volume() int {
 	return fs.W * fs.H * fs.D
+}
+
+// Check if two boxes overlap in 3D space
+func boxesOverlap(p1 Placement, x2, y2, z2, w2, h2, d2 int) bool {
+	// Two boxes overlap if they overlap on all three axes
+	overlapX := p1.X < x2+w2 && p1.X+p1.W > x2
+	overlapY := p1.Y < y2+h2 && p1.Y+p1.H > y2
+	overlapZ := p1.Z < z2+d2 && p1.Z+p1.D > z2
+	return overlapX && overlapY && overlapZ
+}
+
+// Check if a placement overlaps with any existing placements
+func hasOverlap(placements []Placement, x, y, z, w, h, d int) bool {
+	for _, p := range placements {
+		if boxesOverlap(p, x, y, z, w, h, d) {
+			return true
+		}
+	}
+	return false
+}
+
+// Check if placement fits within box bounds
+func fitsInBox(box InputBox, x, y, z, w, h, d int) bool {
+	return x >= 0 && y >= 0 && z >= 0 &&
+		x+w <= box.W && y+h <= box.H && z+d <= box.D
 }
 
 // Internal item representation for packing (handling quantity)
@@ -72,6 +98,22 @@ func (a byBoxVolumeAsc) Len() int      { return len(a) }
 func (a byBoxVolumeAsc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byBoxVolumeAsc) Less(i, j int) bool {
 	return (a[i].W * a[i].H * a[i].D) < (a[j].W * a[j].H * a[j].D)
+}
+
+// Sort free spaces by position (bottom-left-back preference)
+type byPositionPreference []FreeSpace
+
+func (a byPositionPreference) Len() int      { return len(a) }
+func (a byPositionPreference) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byPositionPreference) Less(i, j int) bool {
+	// Prefer lower Y (bottom), then lower Z (back), then lower X (left)
+	if a[i].Y != a[j].Y {
+		return a[i].Y < a[j].Y
+	}
+	if a[i].Z != a[j].Z {
+		return a[i].Z < a[j].Z
+	}
+	return a[i].X < a[j].X
 }
 
 // --- Core Logic ---
@@ -117,13 +159,6 @@ func Pack(inputItems []InputItem, availableBoxes []InputBox) ([]PackedBox, []Inp
 		// Try to pack remaining items into EACH available box type
 		for i, box := range availableBoxes {
 			placements, isPacked, packedVol := packIntoBox(remainingItems, box)
-
-			// Selection Criteria:
-			// 1. Maximize Volume Packed
-			// 2. Minimize Box Volume (if packed volume is equal) - implied by sorting boxes asc?
-			// Actually, we want the "tightest" fit.
-			// If Box A (Vol 100) packs 90, and Box B (Vol 200) packs 90. We prefer Box A.
-			// So we can use Utilization = PackedVol / BoxVol.
 
 			if packedVol > 0 {
 				boxVol := box.W * box.H * box.D
@@ -173,9 +208,11 @@ func Pack(inputItems []InputItem, availableBoxes []InputBox) ([]PackedBox, []Inp
 	return packedBoxes, unpackedItems
 }
 
-// packIntoBox attempts to pack items into a specific box and returns the result
+// packIntoBox attempts to pack items into a specific box using Extreme Points algorithm
 func packIntoBox(items []itemToPack, box InputBox) ([]Placement, []bool, int) {
-	freeSpaces := []FreeSpace{{
+	// Use Extreme Points (EP) algorithm for better packing
+	// Start with the origin as the only extreme point
+	extremePoints := []FreeSpace{{
 		X: 0, Y: 0, Z: 0,
 		W: box.W, H: box.H, D: box.D,
 	}}
@@ -185,75 +222,133 @@ func packIntoBox(items []itemToPack, box InputBox) ([]Placement, []bool, int) {
 	packedVol := 0
 
 	for i, item := range items {
-		bestSpaceIndex := -1
-		bestRotation := -1 // 0-5
-		minVolDiff := math.MaxInt64
+		bestPoint := -1
+		bestRotation := -1
+		bestScore := math.MaxInt64
 
-		// Check all free spaces
-		for si, space := range freeSpaces {
-			// Check all 6 rotations
+		// Sort extreme points by position preference (bottom-left-back)
+		sort.Sort(byPositionPreference(extremePoints))
+
+		// Try each extreme point
+		for pi, ep := range extremePoints {
+			// Try all 6 rotations
 			rotations := getRotations(item.W, item.H, item.D)
 			for r, dim := range rotations {
-				if dim[0] <= space.W && dim[1] <= space.H && dim[2] <= space.D {
-					// Fits!
-					// Heuristic: Best Fit (minimize wasted volume in the space)
-					volDiff := space.Volume() - item.Volume
-					if volDiff < minVolDiff {
-						minVolDiff = volDiff
-						bestSpaceIndex = si
-						bestRotation = r
-					}
+				w, h, d := dim[0], dim[1], dim[2]
+
+				// Check if item fits at this point within box bounds
+				if !fitsInBox(box, ep.X, ep.Y, ep.Z, w, h, d) {
+					continue
+				}
+
+				// Check for overlap with existing placements
+				if hasOverlap(placements, ep.X, ep.Y, ep.Z, w, h, d) {
+					continue
+				}
+
+				// Score: prefer positions closer to origin (bottom-left-back)
+				// Using weighted sum: Y is most important (gravity), then Z, then X
+				score := ep.Y*1000 + ep.Z*100 + ep.X*10
+
+				// Secondary: prefer tighter fit
+				score += (ep.W - w) + (ep.H - h) + (ep.D - d)
+
+				if score < bestScore {
+					bestScore = score
+					bestPoint = pi
+					bestRotation = r
 				}
 			}
 		}
 
-		if bestSpaceIndex != -1 {
+		if bestPoint != -1 {
 			// Place item
-			space := freeSpaces[bestSpaceIndex]
+			ep := extremePoints[bestPoint]
 			rotations := getRotations(item.W, item.H, item.D)
 			w, h, d := rotations[bestRotation][0], rotations[bestRotation][1], rotations[bestRotation][2]
 
-			placements = append(placements, Placement{
+			placement := Placement{
 				ItemID: item.ID,
-				X:      space.X, Y: space.Y, Z: space.Z,
+				X:      ep.X, Y: ep.Y, Z: ep.Z,
 				W: w, H: h, D: d,
-			})
+			}
+			placements = append(placements, placement)
 			isPacked[i] = true
 			packedVol += item.Volume
 
-			// Remove used space
-			freeSpaces[bestSpaceIndex] = freeSpaces[len(freeSpaces)-1]
-			freeSpaces = freeSpaces[:len(freeSpaces)-1]
-
-			// Generate new spaces (Split)
-			// 1. Right: x+w, remainder width, full height, full depth
-			if space.W > w {
-				freeSpaces = append(freeSpaces, FreeSpace{
-					X: space.X + w, Y: space.Y, Z: space.Z,
-					W: space.W - w, H: space.H, D: space.D,
-				})
-			}
-			// 2. Top: x, y+h, remainder height, full depth (constrained width)
-			if space.H > h {
-				freeSpaces = append(freeSpaces, FreeSpace{
-					X: space.X, Y: space.Y + h, Z: space.Z,
-					W: w, H: space.H - h, D: space.D,
-				})
-			}
-			// 3. Front: x, y, z+d, remainder depth (constrained width and height)
-			if space.D > d {
-				freeSpaces = append(freeSpaces, FreeSpace{
-					X: space.X, Y: space.Y, Z: space.Z + d,
-					W: w, H: h, D: space.D - d,
-				})
-			}
-
-			// Defragmentation (Merge)
-			freeSpaces = mergeFreeSpaces(freeSpaces)
+			// Generate new extreme points from this placement
+			extremePoints = updateExtremePoints(extremePoints, placement, box, placements)
 		}
 	}
 
 	return placements, isPacked, packedVol
+}
+
+// updateExtremePoints generates new extreme points after placing an item
+func updateExtremePoints(eps []FreeSpace, placed Placement, box InputBox, placements []Placement) []FreeSpace {
+	// Generate new potential extreme points at corners of placed item
+	newPoints := []FreeSpace{
+		// Right of placed item (X+W, Y, Z)
+		{X: placed.X + placed.W, Y: placed.Y, Z: placed.Z, W: box.W - (placed.X + placed.W), H: box.H - placed.Y, D: box.D - placed.Z},
+		// Top of placed item (X, Y+H, Z)
+		{X: placed.X, Y: placed.Y + placed.H, Z: placed.Z, W: box.W - placed.X, H: box.H - (placed.Y + placed.H), D: box.D - placed.Z},
+		// Front of placed item (X, Y, Z+D)
+		{X: placed.X, Y: placed.Y, Z: placed.Z + placed.D, W: box.W - placed.X, H: box.H - placed.Y, D: box.D - (placed.Z + placed.D)},
+	}
+
+	// Filter out points outside box bounds or inside existing placements
+	var validPoints []FreeSpace
+	for _, ep := range newPoints {
+		// Must be within box bounds
+		if ep.X >= box.W || ep.Y >= box.H || ep.Z >= box.D {
+			continue
+		}
+		if ep.X < 0 || ep.Y < 0 || ep.Z < 0 {
+			continue
+		}
+
+		// Check if this point is inside an existing placement
+		pointInsidePlacement := false
+		for _, p := range placements {
+			if ep.X >= p.X && ep.X < p.X+p.W &&
+				ep.Y >= p.Y && ep.Y < p.Y+p.H &&
+				ep.Z >= p.Z && ep.Z < p.Z+p.D {
+				pointInsidePlacement = true
+				break
+			}
+		}
+		if !pointInsidePlacement {
+			validPoints = append(validPoints, ep)
+		}
+	}
+
+	// Keep existing extreme points that are still valid
+	for _, ep := range eps {
+		// Check if this point is now inside the new placement
+		if ep.X >= placed.X && ep.X < placed.X+placed.W &&
+			ep.Y >= placed.Y && ep.Y < placed.Y+placed.H &&
+			ep.Z >= placed.Z && ep.Z < placed.Z+placed.D {
+			continue // Point is now occupied
+		}
+		validPoints = append(validPoints, ep)
+	}
+
+	// Remove duplicates
+	return removeDuplicatePoints(validPoints)
+}
+
+// removeDuplicatePoints removes duplicate extreme points
+func removeDuplicatePoints(points []FreeSpace) []FreeSpace {
+	seen := make(map[[3]int]bool)
+	var result []FreeSpace
+	for _, p := range points {
+		key := [3]int{p.X, p.Y, p.Z}
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 func getRotations(w, h, d int) [][3]int {
@@ -265,77 +360,4 @@ func getRotations(w, h, d int) [][3]int {
 		{d, w, h},
 		{d, h, w},
 	}
-}
-
-// mergeFreeSpaces iterates through the list and merges adjacent spaces
-func mergeFreeSpaces(spaces []FreeSpace) []FreeSpace {
-	for {
-		merged := false
-		for i := 0; i < len(spaces); i++ {
-			for j := i + 1; j < len(spaces); j++ {
-				s1 := spaces[i]
-				s2 := spaces[j]
-
-				// Check if they can be merged
-				// Case 1: Same X, W, Z, D. Adjacent in Y (Top/Bottom)
-				if s1.X == s2.X && s1.W == s2.W && s1.Z == s2.Z && s1.D == s2.D {
-					if s1.Y+s1.H == s2.Y { // s1 below s2
-						spaces[i].H += s2.H
-						spaces = remove(spaces, j)
-						merged = true
-						break
-					} else if s2.Y+s2.H == s1.Y { // s2 below s1
-						spaces[i].Y = s2.Y
-						spaces[i].H += s2.H
-						spaces = remove(spaces, j)
-						merged = true
-						break
-					}
-				}
-
-				// Case 2: Same Y, H, Z, D. Adjacent in X (Left/Right)
-				if s1.Y == s2.Y && s1.H == s2.H && s1.Z == s2.Z && s1.D == s2.D {
-					if s1.X+s1.W == s2.X { // s1 left of s2
-						spaces[i].W += s2.W
-						spaces = remove(spaces, j)
-						merged = true
-						break
-					} else if s2.X+s2.W == s1.X { // s2 left of s1
-						spaces[i].X = s2.X
-						spaces[i].W += s2.W
-						spaces = remove(spaces, j)
-						merged = true
-						break
-					}
-				}
-
-				// Case 3: Same X, W, Y, H. Adjacent in Z (Front/Back)
-				if s1.X == s2.X && s1.W == s2.W && s1.Y == s2.Y && s1.H == s2.H {
-					if s1.Z+s1.D == s2.Z { // s1 behind s2
-						spaces[i].D += s2.D
-						spaces = remove(spaces, j)
-						merged = true
-						break
-					} else if s2.Z+s2.D == s1.Z { // s2 behind s1
-						spaces[i].Z = s2.Z
-						spaces[i].D += s2.D
-						spaces = remove(spaces, j)
-						merged = true
-						break
-					}
-				}
-			}
-			if merged {
-				break
-			}
-		}
-		if !merged {
-			break
-		}
-	}
-	return spaces
-}
-
-func remove(slice []FreeSpace, s int) []FreeSpace {
-	return append(slice[:s], slice[s+1:]...)
 }

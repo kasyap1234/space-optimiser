@@ -7,129 +7,392 @@
     <title>3D Bin Packing Visualization</title>
     <style>
         :root {
-            --bg-color: #1a1a1a;
-            --sidebar-bg: #2d2d2d;
-            --text-color: #e0e0e0;
-            --accent-color: #4a90e2;
-            --accent-hover: #357abd;
-            --border-color: #444;
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #252542;
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a0b8;
+            --accent-primary: #6366f1;
+            --accent-secondary: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border-color: #3a3a5c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         body {
-            margin: 0;
             display: flex;
             height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
             overflow: hidden;
-            background: var(--bg-color);
-            color: var(--text-color);
+            background: var(--bg-primary);
+            color: var(--text-primary);
         }
 
         #sidebar {
-            width: 320px;
-            padding: 25px;
-            background: var(--sidebar-bg);
+            width: 360px;
+            padding: 24px;
+            background: var(--bg-secondary);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
             z-index: 10;
         }
 
         #canvas-container {
             flex-grow: 1;
-            background: var(--bg-color);
+            background: var(--bg-primary);
             position: relative;
             overflow: hidden;
         }
 
-        h2 {
-            margin-top: 0;
-            color: var(--accent-color);
-            font-weight: 300;
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
             letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
         }
 
         label {
             font-size: 12px;
-            color: #aaa;
-            margin-bottom: 5px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
             display: block;
         }
 
         textarea {
             width: 100%;
-            height: 200px;
-            margin-bottom: 15px;
-            background: #222;
+            height: 180px;
+            background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
-            color: #cfcfcf;
-            padding: 10px;
-            border-radius: 4px;
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 8px;
             resize: vertical;
-            font-family: 'Consolas', monospace;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
             font-size: 12px;
-            box-sizing: border-box;
+            line-height: 1.5;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         textarea:focus {
             outline: none;
-            border-color: var(--accent-color);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
         button {
-            padding: 12px;
-            background: var(--accent-color);
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             color: white;
             border: none;
             cursor: pointer;
             font-size: 14px;
-            border-radius: 4px;
-            transition: background 0.2s;
             font-weight: 600;
+            border-radius: 8px;
+            transition: transform 0.1s, box-shadow 0.2s;
+            width: 100%;
         }
 
         button:hover {
-            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            margin-top: 8px;
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+            box-shadow: none;
         }
 
         #stats {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-            font-size: 13px;
-            line-height: 1.6;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
         }
 
-        #stats strong {
-            color: #fff;
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-value.success {
+            color: var(--success);
+        }
+
+        .stat-value.warning {
+            color: var(--warning);
+        }
+
+        .stat-value.error {
+            color: var(--error);
+        }
+
+        .utilization-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .utilization-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--success));
+            border-radius: 4px;
+            transition: width 0.5s ease-out;
         }
 
         .box-select {
             width: 100%;
-            padding: 8px;
-            background: #222;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
-            color: white;
+            color: var(--text-primary);
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .box-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        #legend {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
             border-radius: 4px;
-            margin-top: 5px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .legend-id {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .legend-dims {
+            color: var(--text-secondary);
+            font-size: 11px;
         }
 
         #tooltip {
             position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
             pointer-events: none;
             display: none;
             z-index: 100;
-            border: 1px solid #555;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            min-width: 160px;
+        }
+
+        .tooltip-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--accent-secondary);
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+        }
+
+        .tooltip-label {
+            color: var(--text-secondary);
+        }
+
+        #controls-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 8px;
+            z-index: 50;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .control-btn:hover {
+            background: var(--bg-tertiary);
+            transform: scale(1.05);
+            box-shadow: none;
+        }
+
+        .control-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        #info-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            z-index: 50;
+            font-size: 12px;
+            color: var(--text-secondary);
+            backdrop-filter: blur(10px);
+        }
+
+        #info-overlay h4 {
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        #info-overlay p {
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .kbd {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
         }
     </style>
     <script type="importmap">
@@ -144,10 +407,15 @@
 
 <body>
     <div id="sidebar">
-        <h2>Bin Packer</h2>
-        <label for="jsonInput">Input JSON</label>
-        <textarea id="jsonInput">
-{
+        <div class="logo">
+            <div class="logo-icon">📦</div>
+            <h1>Space Optimiser</h1>
+        </div>
+
+        <div class="section">
+            <div class="section-header">Input Configuration</div>
+            <label for="jsonInput">JSON Payload</label>
+            <textarea id="jsonInput">{
   "items": [
     {"id": "item-b", "w": 20, "h": 20, "d": 20, "quantity": 1},
     {"id": "item-a", "w": 10, "h": 10, "d": 10, "quantity": 2},
@@ -157,17 +425,41 @@
     {"id": "box-small", "w": 15, "h": 15, "d": 15},
     {"id": "box-large", "w": 30, "h": 30, "d": 30}
   ]
-}
-        </textarea>
-        <button id="packBtn">Pack & Visualize</button>
-        <div id="stats"></div>
-        <div id="box-controls" style="display:none; margin-top: 20px;">
-            <label>View Box:</label>
+}</textarea>
+            <button id="packBtn">🚀 Pack & Visualize</button>
+        </div>
+
+        <div class="section" id="stats-section" style="display: none;">
+            <div class="section-header">Packing Results</div>
+            <div id="stats"></div>
+        </div>
+
+        <div class="section" id="box-controls" style="display: none;">
+            <div class="section-header">View Selection</div>
             <select id="boxSelect" class="box-select"></select>
         </div>
+
+        <div class="section" id="legend-section" style="display: none;">
+            <div class="section-header">Item Legend</div>
+            <div id="legend"></div>
+        </div>
     </div>
+
     <div id="canvas-container">
         <div id="tooltip"></div>
+        
+        <div id="controls-overlay">
+            <button class="control-btn" id="resetViewBtn" title="Reset View">🏠</button>
+            <button class="control-btn" id="explodedViewBtn" title="Exploded View">💥</button>
+            <button class="control-btn" id="wireframeBtn" title="Wireframe Mode">📐</button>
+        </div>
+
+        <div id="info-overlay">
+            <h4>🖱️ Controls</h4>
+            <p><span class="kbd">Left Drag</span> Rotate</p>
+            <p><span class="kbd">Right Drag</span> Pan</p>
+            <p><span class="kbd">Scroll</span> Zoom</p>
+        </div>
     </div>
 
     <script type="module">
@@ -178,55 +470,84 @@
         let currentMeshes = [];
         let raycaster, mouse;
         let hoveredItem = null;
+        let isExploded = false;
+        let isWireframe = false;
+        let currentPackedBox = null;
+        let currentBoxDef = null;
+        let itemDataMap = new Map();
+
+        // Premium color palette
+        const colorPalette = [
+            0x6366f1, 0xec4899, 0x14b8a6, 0xf59e0b, 
+            0x8b5cf6, 0x06b6d4, 0xf43f5e, 0x22c55e,
+            0x3b82f6, 0xa855f7, 0x10b981, 0xeab308
+        ];
 
         function init() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a1a);
-            // Add some fog for depth
-            scene.fog = new THREE.Fog(0x1a1a1a, 50, 200);
+            scene.background = new THREE.Color(0x0f0f1a);
+            scene.fog = new THREE.Fog(0x0f0f1a, 80, 300);
 
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(60, 40, 60);
+            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(60, 50, 60);
             camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
             container.appendChild(renderer.domElement);
 
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
+            controls.minDistance = 10;
+            controls.maxDistance = 300;
 
-            // Lighting
+            // Lighting setup
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-            dirLight.position.set(50, 100, 50);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
-            scene.add(dirLight);
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+            mainLight.position.set(50, 100, 50);
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.camera.near = 1;
+            mainLight.shadow.camera.far = 300;
+            mainLight.shadow.camera.left = -100;
+            mainLight.shadow.camera.right = 100;
+            mainLight.shadow.camera.top = 100;
+            mainLight.shadow.camera.bottom = -100;
+            scene.add(mainLight);
 
-            const fillLight = new THREE.DirectionalLight(0x4a90e2, 0.3);
-            fillLight.position.set(-50, 20, -50);
+            const fillLight = new THREE.DirectionalLight(0x6366f1, 0.3);
+            fillLight.position.set(-50, 30, -50);
             scene.add(fillLight);
 
+            const rimLight = new THREE.DirectionalLight(0xec4899, 0.2);
+            rimLight.position.set(0, -50, 50);
+            scene.add(rimLight);
+
             // Floor
-            const planeGeometry = new THREE.PlaneGeometry(200, 200);
-            const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });
-            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-            plane.rotation.x = -Math.PI / 2;
-            plane.position.y = -0.1;
-            plane.receiveShadow = true;
-            scene.add(plane);
+            const floorGeometry = new THREE.PlaneGeometry(400, 400);
+            const floorMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x0f0f1a,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -0.5;
+            floor.receiveShadow = true;
+            scene.add(floor);
 
             // Grid Helper
-            const gridHelper = new THREE.GridHelper(200, 50, 0x444444, 0x222222);
+            const gridHelper = new THREE.GridHelper(200, 40, 0x2a2a4a, 0x1a1a2e);
             scene.add(gridHelper);
 
             // Raycaster
@@ -235,6 +556,12 @@
 
             window.addEventListener('resize', onWindowResize);
             container.addEventListener('mousemove', onMouseMove);
+            
+            // Control buttons
+            document.getElementById('resetViewBtn').addEventListener('click', resetView);
+            document.getElementById('explodedViewBtn').addEventListener('click', toggleExplodedView);
+            document.getElementById('wireframeBtn').addEventListener('click', toggleWireframe);
+
             animate();
         }
 
@@ -251,11 +578,10 @@
             mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
             mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
 
-            // Update tooltip position
             const tooltip = document.getElementById('tooltip');
             if (hoveredItem) {
-                tooltip.style.left = (event.clientX + 15) + 'px';
-                tooltip.style.top = (event.clientY + 15) + 'px';
+                tooltip.style.left = (event.clientX - rect.left + 15) + 'px';
+                tooltip.style.top = (event.clientY - rect.top + 15) + 'px';
             }
         }
 
@@ -263,42 +589,46 @@
             requestAnimationFrame(animate);
             controls.update();
 
-            // Raycasting
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(currentMeshes);
+            const intersects = raycaster.intersectObjects(currentMeshes.filter(m => m.userData && m.userData.isItem));
 
             const tooltip = document.getElementById('tooltip');
 
             if (intersects.length > 0) {
-                // Find the first object that is an item (userData has info)
-                const hit = intersects.find(i => i.object.userData && i.object.userData.isItem);
+                const hit = intersects[0].object;
+                if (hit.userData && hit.userData.isItem) {
+                    if (hoveredItem !== hit) {
+                        if (hoveredItem) {
+                            hoveredItem.material.emissive.setHex(0x000000);
+                            hoveredItem.scale.set(1, 1, 1);
+                        }
+                        hoveredItem = hit;
+                        hoveredItem.material.emissive.setHex(0x333333);
+                        hoveredItem.scale.set(1.02, 1.02, 1.02);
 
-                if (hit) {
-                    const item = hit.object.userData;
-                    if (hoveredItem !== hit.object) {
-                        // Reset previous
-                        if (hoveredItem) hoveredItem.material.emissive.setHex(0x000000);
-
-                        hoveredItem = hit.object;
-                        hoveredItem.material.emissive.setHex(0x333333); // Highlight
-
+                        const item = hit.userData;
                         tooltip.style.display = 'block';
                         tooltip.innerHTML = `
-                            <strong>ID:</strong> ${item.id}<br>
-                            <strong>Dims:</strong> ${item.w} x ${item.h} x ${item.d}<br>
-                            <strong>Pos:</strong> ${item.x}, ${item.y}, ${item.z}
+                            <div class="tooltip-title">${item.id}</div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Size</span>
+                                <span>${item.w} × ${item.h} × ${item.d}</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Position</span>
+                                <span>(${item.x}, ${item.y}, ${item.z})</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Volume</span>
+                                <span>${item.w * item.h * item.d}</span>
+                            </div>
                         `;
-                    }
-                } else {
-                    if (hoveredItem) {
-                        hoveredItem.material.emissive.setHex(0x000000);
-                        hoveredItem = null;
-                        tooltip.style.display = 'none';
                     }
                 }
             } else {
                 if (hoveredItem) {
                     hoveredItem.material.emissive.setHex(0x000000);
+                    hoveredItem.scale.set(1, 1, 1);
                     hoveredItem = null;
                     tooltip.style.display = 'none';
                 }
@@ -308,85 +638,190 @@
         }
 
         function clearScene() {
-            currentMeshes.forEach(mesh => scene.remove(mesh));
+            currentMeshes.forEach(mesh => {
+                scene.remove(mesh);
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) {
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach(m => m.dispose());
+                    } else {
+                        mesh.material.dispose();
+                    }
+                }
+            });
             currentMeshes = [];
+            itemDataMap.clear();
         }
 
-        function getRandomColor(id) {
-            let hash = 0;
-            for (let i = 0; i < id.length; i++) {
-                hash = id.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-            return '#' + '00000'.substring(0, 6 - c.length) + c;
+        function getItemColor(id, index) {
+            return colorPalette[index % colorPalette.length];
         }
 
         function drawBox(w, h, d) {
-            // Glass Box
+            // Glass container
             const geometry = new THREE.BoxGeometry(w, h, d);
             const material = new THREE.MeshPhysicalMaterial({
                 color: 0xffffff,
                 metalness: 0,
                 roughness: 0,
-                transmission: 0.2, // Glass-like
+                transmission: 0.95,
                 transparent: true,
-                opacity: 0.3,
+                opacity: 0.15,
                 side: THREE.DoubleSide,
-                depthWrite: false // Allow seeing items inside clearly
+                depthWrite: false,
+                ior: 1.5,
+                thickness: 0.5
             });
 
             const boxMesh = new THREE.Mesh(geometry, material);
             boxMesh.position.set(w / 2, h / 2, d / 2);
             boxMesh.userData = { isBox: true };
-
             scene.add(boxMesh);
             currentMeshes.push(boxMesh);
 
-            // Edges
+            // Glowing edges
             const edges = new THREE.EdgesGeometry(geometry);
-            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x666666 }));
+            const edgeMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x6366f1, 
+                linewidth: 2,
+                transparent: true,
+                opacity: 0.8
+            });
+            const line = new THREE.LineSegments(edges, edgeMaterial);
             line.position.copy(boxMesh.position);
             scene.add(line);
             currentMeshes.push(line);
+
+            // Add dimension labels
+            addDimensionLabels(w, h, d);
         }
 
-        function drawItem(item) {
-            const geometry = new THREE.BoxGeometry(item.w, item.h, item.d);
-            const color = getRandomColor(item.item_id);
+        function addDimensionLabels(w, h, d) {
+            // Create sprite labels for dimensions
+            const createLabel = (text, position) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 128;
+                canvas.height = 64;
+                
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+                ctx.roundRect(0, 0, 128, 64, 8);
+                ctx.fill();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, 64, 32);
 
-            const material = new THREE.MeshLambertMaterial({
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+                const sprite = new THREE.Sprite(material);
+                sprite.position.copy(position);
+                sprite.scale.set(8, 4, 1);
+                scene.add(sprite);
+                currentMeshes.push(sprite);
+            };
+
+            createLabel(`W: ${w}`, new THREE.Vector3(w / 2, -3, d + 3));
+            createLabel(`H: ${h}`, new THREE.Vector3(-5, h / 2, d / 2));
+            createLabel(`D: ${d}`, new THREE.Vector3(w + 5, -3, d / 2));
+        }
+
+        function drawItem(item, colorIndex, explodeFactor = 0) {
+            const geometry = new THREE.BoxGeometry(item.w * 0.98, item.h * 0.98, item.d * 0.98);
+            const color = getItemColor(item.item_id, colorIndex);
+
+            const material = new THREE.MeshStandardMaterial({
                 color: color,
+                roughness: 0.3,
+                metalness: 0.1,
+                wireframe: isWireframe
             });
 
             const cube = new THREE.Mesh(geometry, material);
 
-            // Position: item.x,y,z is bottom-left-back. Three.js is center.
-            cube.position.set(
-                item.x + item.w / 2,
-                item.y + item.h / 2,
-                item.z + item.d / 2
-            );
+            // Calculate center with optional explosion
+            let centerX = item.x + item.w / 2;
+            let centerY = item.y + item.h / 2;
+            let centerZ = item.z + item.d / 2;
 
+            if (explodeFactor > 0 && currentBoxDef) {
+                const boxCenterX = currentBoxDef.w / 2;
+                const boxCenterY = currentBoxDef.h / 2;
+                const boxCenterZ = currentBoxDef.d / 2;
+                
+                const dirX = centerX - boxCenterX;
+                const dirY = centerY - boxCenterY;
+                const dirZ = centerZ - boxCenterZ;
+                
+                centerX += dirX * explodeFactor;
+                centerY += dirY * explodeFactor;
+                centerZ += dirZ * explodeFactor;
+            }
+
+            cube.position.set(centerX, centerY, centerZ);
             cube.castShadow = true;
             cube.receiveShadow = true;
 
-            // Store data for tooltip
             cube.userData = {
                 isItem: true,
                 id: item.item_id,
                 w: item.w, h: item.h, d: item.d,
-                x: item.x, y: item.y, z: item.z
+                x: item.x, y: item.y, z: item.z,
+                originalPosition: new THREE.Vector3(item.x + item.w / 2, item.y + item.h / 2, item.z + item.d / 2),
+                colorIndex: colorIndex
             };
 
-            // Edges for definition
+            // Subtle edges
             const edges = new THREE.EdgesGeometry(geometry);
-            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, opacity: 0.3, transparent: true }));
+            const edgeMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x000000, 
+                transparent: true, 
+                opacity: 0.2 
+            });
+            const line = new THREE.LineSegments(edges, edgeMaterial);
             line.position.copy(cube.position);
 
             scene.add(cube);
             scene.add(line);
             currentMeshes.push(cube);
             currentMeshes.push(line);
+
+            itemDataMap.set(item.item_id, { color, mesh: cube });
+        }
+
+        function resetView() {
+            if (currentBoxDef) {
+                const maxDim = Math.max(currentBoxDef.w, currentBoxDef.h, currentBoxDef.d);
+                const distance = maxDim * 2.5;
+                
+                camera.position.set(distance, distance * 0.8, distance);
+                controls.target.set(currentBoxDef.w / 2, currentBoxDef.h / 2, currentBoxDef.d / 2);
+                controls.update();
+            }
+        }
+
+        function toggleExplodedView() {
+            isExploded = !isExploded;
+            const btn = document.getElementById('explodedViewBtn');
+            btn.classList.toggle('active', isExploded);
+            
+            if (currentPackedBox && currentBoxDef) {
+                renderBox(currentPackedBox, [currentBoxDef]);
+            }
+        }
+
+        function toggleWireframe() {
+            isWireframe = !isWireframe;
+            const btn = document.getElementById('wireframeBtn');
+            btn.classList.toggle('active', isWireframe);
+            
+            currentMeshes.forEach(mesh => {
+                if (mesh.userData && mesh.userData.isItem && mesh.material) {
+                    mesh.material.wireframe = isWireframe;
+                }
+            });
         }
 
         async function pack() {
@@ -395,12 +830,12 @@
             try {
                 data = JSON.parse(input);
             } catch (e) {
-                alert("Invalid JSON");
+                alert("Invalid JSON: " + e.message);
                 return;
             }
 
             const btn = document.getElementById('packBtn');
-            btn.textContent = "Packing...";
+            btn.innerHTML = '<span class="loading">⏳</span> Packing...';
             btn.disabled = true;
 
             try {
@@ -416,65 +851,143 @@
                 }
 
                 const result = await res.json();
+                
+                // Show sections
+                document.getElementById('stats-section').style.display = 'block';
+                document.getElementById('legend-section').style.display = 'block';
 
-                // Update Stats
+                // Calculate per-box stats
+                const boxStats = result.packed_boxes.map(pb => {
+                    const boxDef = data.boxes.find(b => b.id === pb.box_id);
+                    const boxVol = boxDef ? boxDef.w * boxDef.h * boxDef.d : 0;
+                    const itemsVol = pb.contents.reduce((sum, item) => sum + item.w * item.h * item.d, 0);
+                    return {
+                        id: pb.box_id,
+                        utilization: boxVol > 0 ? (itemsVol / boxVol * 100) : 0,
+                        itemCount: pb.contents.length
+                    };
+                });
+
+                // Update stats
+                const totalItems = result.packed_boxes.reduce((sum, pb) => sum + pb.contents.length, 0);
+                const unpackedCount = result.unpacked_items ? result.unpacked_items.length : 0;
+                
+                let utilizationClass = '';
+                if (result.utilization_percent >= 70) utilizationClass = 'success';
+                else if (result.utilization_percent >= 40) utilizationClass = 'warning';
+                else utilizationClass = 'error';
+
                 document.getElementById('stats').innerHTML = `
-                    <strong>Total Volume:</strong> ${result.total_volume}<br>
-                    <strong>Utilization:</strong> ${result.utilization_percent.toFixed(2)}%<br>
-                    <strong>Unpacked Items:</strong> ${result.unpacked_items ? result.unpacked_items.length : 0}
+                    <div class="stat-row">
+                        <span class="stat-label">Boxes Used</span>
+                        <span class="stat-value">${result.packed_boxes.length}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Items Packed</span>
+                        <span class="stat-value success">${totalItems}</span>
+                    </div>
+                    ${unpackedCount > 0 ? `
+                    <div class="stat-row">
+                        <span class="stat-label">Unpacked</span>
+                        <span class="stat-value error">${unpackedCount}</span>
+                    </div>
+                    ` : ''}
+                    <div class="stat-row">
+                        <span class="stat-label">Utilization</span>
+                        <span class="stat-value ${utilizationClass}">${result.utilization_percent.toFixed(1)}%</span>
+                    </div>
+                    <div class="utilization-bar">
+                        <div class="utilization-fill" style="width: ${result.utilization_percent}%"></div>
+                    </div>
                 `;
 
-                // Handle multiple packed boxes
+                // Box selector
                 const boxSelect = document.getElementById('boxSelect');
                 boxSelect.innerHTML = '';
 
                 if (result.packed_boxes.length > 0) {
                     document.getElementById('box-controls').style.display = 'block';
                     result.packed_boxes.forEach((box, index) => {
+                        const stats = boxStats[index];
                         const option = document.createElement('option');
                         option.value = index;
-                        option.text = `Box ${box.box_id} (${index + 1})`;
+                        option.text = `${box.box_id} — ${stats.itemCount} items (${stats.utilization.toFixed(1)}%)`;
                         boxSelect.appendChild(option);
                     });
 
-                    // Render first box
                     renderBox(result.packed_boxes[0], data.boxes);
+                    updateLegend(result.packed_boxes[0].contents);
 
                     boxSelect.onchange = (e) => {
-                        renderBox(result.packed_boxes[e.target.value], data.boxes);
+                        const pb = result.packed_boxes[e.target.value];
+                        renderBox(pb, data.boxes);
+                        updateLegend(pb.contents);
                     };
                 } else {
                     clearScene();
-                    alert("No items packed!");
+                    document.getElementById('box-controls').style.display = 'none';
+                    document.getElementById('legend').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div>No items packed</div>';
                 }
             } catch (err) {
                 console.error(err);
-                alert("An error occurred.");
+                alert("An error occurred: " + err.message);
             } finally {
-                btn.textContent = "Pack & Visualize";
+                btn.innerHTML = '🚀 Pack & Visualize';
                 btn.disabled = false;
             }
         }
 
+        function updateLegend(contents) {
+            const legend = document.getElementById('legend');
+            const uniqueItems = new Map();
+            
+            contents.forEach((item, index) => {
+                if (!uniqueItems.has(item.item_id)) {
+                    uniqueItems.set(item.item_id, { 
+                        item, 
+                        count: 1, 
+                        colorIndex: index 
+                    });
+                } else {
+                    uniqueItems.get(item.item_id).count++;
+                }
+            });
+
+            let html = '';
+            uniqueItems.forEach((data, id) => {
+                const color = getItemColor(id, data.colorIndex);
+                const colorHex = '#' + color.toString(16).padStart(6, '0');
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: ${colorHex}"></div>
+                        <span class="legend-id">${id}</span>
+                        <span class="legend-dims">${data.item.w}×${data.item.h}×${data.item.d}</span>
+                        ${data.count > 1 ? `<span class="legend-dims">×${data.count}</span>` : ''}
+                    </div>
+                `;
+            });
+            
+            legend.innerHTML = html || '<div class="empty-state">No items</div>';
+        }
+
         function renderBox(packedBox, availableBoxes) {
             clearScene();
+            currentPackedBox = packedBox;
 
-            // Find box dimensions
             const boxDef = availableBoxes.find(b => b.id === packedBox.box_id);
+            currentBoxDef = boxDef;
+            
             if (boxDef) {
                 drawBox(boxDef.w, boxDef.h, boxDef.d);
 
-                // Adjust camera to fit box
-                const maxDim = Math.max(boxDef.w, boxDef.h, boxDef.d);
-                // Smoothly animate camera? For now just set it.
-                // camera.position.set(maxDim*1.5, maxDim*1.5, maxDim*1.5);
-                // controls.target.set(boxDef.w/2, boxDef.h/2, boxDef.d/2);
-                // controls.update();
-            }
+                const explodeFactor = isExploded ? 0.5 : 0;
+                packedBox.contents.forEach((item, index) => {
+                    drawItem(item, index, explodeFactor);
+                });
 
-            packedBox.contents.forEach(item => {
-                drawItem(item);
-            });
+                // Auto-focus camera
+                resetView();
+            }
         }
 
         document.getElementById('packBtn').addEventListener('click', pack);
