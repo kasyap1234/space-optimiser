@@ -59,3 +59,29 @@ Or, build locally with Cloud Buildpacks and run via Docker:
 pack build space-optimiser --builder gcr.io/buildpacks/builder:v1
 docker run --rm -p 8080:8080 space-optimiser
 ```
+
+## 🌐 Live API
+
+The API is live on RapidAPI marketplace and backed by Google Cloud Run:
+
+**RapidAPI URL**: https://space-optimiser.p.rapidapi.com
+
+**Endpoint**: `POST /pack`
+
+Example request:
+```bash
+curl -X POST https://space-optimiser.p.rapidapi.com/pack \
+  -H "Content-Type: application/json" \
+  -H "X-RapidAPI-Key: YOUR_API_KEY" \
+  -H "X-RapidAPI-Host: space-optimiser.p.rapidapi.com" \
+  -d '{
+    "items": [{"id": "item-1", "w": 10, "h": 10, "d": 10, "quantity": 1}],
+    "boxes": [{"id": "box-1", "w": 30, "h": 30, "d": 30}]
+  }'
+```
+
+## 📧 Contact
+
+For questions, feedback, or issues:
+- **Email**: kasyap3103@gmail.com
+- **GitHub**: https://github.com/kasyap3103/space-optimiser

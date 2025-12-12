@@ -245,10 +245,10 @@ The API uses an advanced 3D bin packing algorithm with the following features:
 ### cURL
 
 ```bash
-curl -X POST https://api.rapidapi.com/pack \
+curl -X POST https://space-optimiser.p.rapidapi.com/pack \
   -H "Content-Type: application/json" \
   -H "X-RapidAPI-Key: YOUR_API_KEY" \
-  -H "X-RapidAPI-Host: YOUR_API_HOST" \
+  -H "X-RapidAPI-Host: space-optimiser.p.rapidapi.com" \
   -d '{
     "items": [
       {"id": "item-1", "w": 10, "h": 10, "d": 10, "quantity": 2}
@@ -265,11 +265,11 @@ curl -X POST https://api.rapidapi.com/pack \
 import requests
 import json
 
-url = "https://api.rapidapi.com/pack"
+url = "https://space-optimiser.p.rapidapi.com/pack"
 headers = {
     "Content-Type": "application/json",
     "X-RapidAPI-Key": "YOUR_API_KEY",
-    "X-RapidAPI-Host": "YOUR_API_HOST"
+    "X-RapidAPI-Host": "space-optimiser.p.rapidapi.com"
 }
 payload = {
     "items": [
@@ -302,11 +302,11 @@ const fs = require('fs');
 
 const options = {
   method: 'POST',
-  url: 'https://api.rapidapi.com/pack',
+  url: 'https://space-optimiser.p.rapidapi.com/pack',
   headers: {
     'Content-Type': 'application/json',
     'X-RapidAPI-Key': 'YOUR_API_KEY',
-    'X-RapidAPI-Host': 'YOUR_API_HOST'
+    'X-RapidAPI-Host': 'space-optimiser.p.rapidapi.com'
   },
   data: {
     items: [
@@ -354,9 +354,9 @@ A: For optimal performance, we recommend keeping requests under 1000 items and 5
 ## 🆘 Support
 
 Need help? Have questions? Contact us:
-- **Email**: support@example.com
-- **Documentation**: https://docs.example.com
-- **Issues**: https://github.com/example/issues
+- **Email**: kasyap3103@gmail.com
+- **RapidAPI Marketplace**: https://rapidapi.com/kasyap3103/api/space-optimiser
+- **GitHub**: https://github.com/kasyap3103/space-optimiser
 
 ---
 
