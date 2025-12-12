@@ -7,16 +7,37 @@ import (
 	"html/template"
 )
 
-// VisualizationData contains all data needed to render the 3D visualization
+// VisualizationData contains all data needed to render the 3D visualization.
 type VisualizationData struct {
 	PackedBoxes []PackedBox
 	Boxes       []InputBox
 	RequestID   string
 }
 
-// GenerateVisualizationHTML creates an interactive 3D HTML visualization
+// GenerateVisualizationHTML creates an interactive 3D HTML visualization.
 func GenerateVisualizationHTML(data VisualizationData) (string, error) {
-	tmpl := `<!DOCTYPE html>
+	t, err := template.New("visualization").Funcs(template.FuncMap{
+		"jsonMarshal": func(v any) template.JS {
+			b, err := json.Marshal(v)
+			if err != nil {
+				return "[]"
+			}
+			return template.JS(b)
+		},
+	}).Parse(visualizationTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("execute template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+const visualizationTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -321,36 +342,3 @@ func GenerateVisualizationHTML(data VisualizationData) (string, error) {
     </script>
 </body>
 </html>`
-
-	t := template.New("visualization")
-	t = t.Funcs(template.FuncMap{
-		"jsonMarshal": func(v interface{}) template.JS {
-			bytes, err := jsonMarshalIndent(v)
-			if err != nil {
-				return template.JS("[]")
-			}
-			return template.JS(bytes)
-		},
-	})
-
-	t, err := t.Parse(tmpl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	return buf.String(), nil
-}
-
-// Helper function to marshal JSON for template
-func jsonMarshalIndent(v interface{}) (string, error) {
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}

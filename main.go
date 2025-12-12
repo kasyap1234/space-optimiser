@@ -6,7 +6,6 @@ import (
 	"os"
 )
 
-// main provides the HTTP server entrypoint for Cloud Run.
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", Packer)
@@ -16,9 +15,8 @@ func main() {
 		port = "8080"
 	}
 
-	addr := ":" + port
-	log.Printf("server starting on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	log.Printf("server starting on :%s", port)
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
 }
