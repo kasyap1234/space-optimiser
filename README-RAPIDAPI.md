@@ -147,11 +147,34 @@ Pack items into boxes using an optimized 3D bin packing algorithm.
 
 Each packing result includes two visualization options:
 
-### Option 1: Data URI (Instant Preview)
-Copy the `visualization_data_uri` value from the response and paste it directly into your browser's address bar. The 3D visualization will load instantly without requiring any server.
+### Option 1: HTML Download (Recommended) ✅
+**This is the recommended method** - Copy the `visualization_html` value, save it as a `.html` file on your computer, and open it with your browser. This method works reliably because local HTML files can load external JavaScript libraries (Three.js) from CDNs.
 
-### Option 2: HTML Download (Save Locally)
-Copy the `visualization_html` value, save it as a `.html` file on your computer, and open it with your browser. This allows you to save the visualization for later reference.
+**Quick Steps:**
+1. Get the API response
+2. Extract the `visualization_html` field
+3. Save it as `visualization.html`
+4. Open the file in your browser
+
+**Example:**
+```bash
+# Extract and save HTML
+curl -X POST https://space-optimiser.p.rapidapi.com/pack \
+  -H "X-RapidAPI-Key: YOUR_API_KEY" \
+  -H "X-RapidAPI-Host: space-optimiser.p.rapidapi.com" \
+  -H "Content-Type: application/json" \
+  -d '{...}' | jq -r '.visualization_html' > visualization.html
+
+# Open in browser
+open visualization.html  # macOS
+```
+
+### Option 2: Data URI (Limited Support) ⚠️
+Copy the `visualization_data_uri` value from the response and paste it directly into your browser's address bar. 
+
+**⚠️ Important Limitation:** Due to browser security policies, data URIs may not load external JavaScript libraries. If the 3D visualization doesn't appear when using the data URI, use **Option 1 (HTML Download)** instead, which works reliably across all browsers.
+
+**Note:** The data URI method works for viewing the page structure and stats, but the 3D rendering may not display due to external script loading restrictions in data URI contexts.
 
 **Visualization Features:**
 - **Interactive Controls**: Rotate, pan, and zoom the 3D scene

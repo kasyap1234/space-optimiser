@@ -38,8 +38,15 @@ The `/pack` endpoint returns:
 
 You can view the interactive 3D visualization in two ways:
 
-1. **Quick Preview**: Copy the `visualization_data_uri` from the response and paste it into your browser's address bar
-2. **Save File**: Copy the `visualization_html`, save it as `visualization.html`, and open it locally
+1. **✅ Recommended - Save HTML File**: Copy the `visualization_html` from the response, save it as `visualization.html`, and open it in your browser. This method works reliably because local HTML files can load external JavaScript libraries.
+
+   ```bash
+   # Extract HTML from response and save
+   curl ... | jq -r '.visualization_html' > visualization.html
+   open visualization.html  # macOS
+   ```
+
+2. **⚠️ Limited - Data URI**: Copy the `visualization_data_uri` and paste it into your browser's address bar. **Note:** Due to browser security policies, the 3D visualization may not render in data URI contexts. If you don't see the 3D boxes, use method 1 instead.
 
 ## Deploying to Cloud Run
 
