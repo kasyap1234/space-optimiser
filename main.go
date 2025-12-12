@@ -8,7 +8,7 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", Packer)
+	mux.HandleFunc("/", RapidAPIMiddleware(Packer))
 
 	port := os.Getenv("PORT")
 	if port == "" {
