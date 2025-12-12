@@ -112,7 +112,8 @@ Pack items into boxes using an optimized 3D bin packing algorithm.
   "unpacked_items": [],
   "total_volume": 27000,
   "utilization_percent": 25.93,
-  "visualization_url": "https://api.example.com/visualize/abc-123-def-456"
+  "visualization_data_uri": "data:text/html;base64,PCFET0NUWVBFIGh0bWwgbGFuZz0iZW4iPjxoZWFkPi4uLjwvaGVhZD48Ym9keT4uLi48L2JvZHk+PC9odG1sPg==",
+  "visualization_html": "<!DOCTYPE html>...[Full HTML with 3D visualization]..."
 }
 ```
 
@@ -133,7 +134,8 @@ Pack items into boxes using an optimized 3D bin packing algorithm.
 | `unpacked_items` | Array | Items that couldn't fit in any box |
 | `total_volume` | Integer | Total volume of all boxes used |
 | `utilization_percent` | Float | Percentage of box space utilized |
-| `visualization_url` | String | URL to view 3D visualization |
+| `visualization_data_uri` | String | Data URI for instant 3D visualization (paste into browser address bar) |
+| `visualization_html` | String | Raw HTML string for saving as .html file and opening locally |
 
 **Status Codes:**
 
@@ -143,13 +145,19 @@ Pack items into boxes using an optimized 3D bin packing algorithm.
 
 ## 🎨 3D Visualization
 
-Each packing result includes a `visualization_url` that displays an interactive 3D view of your packed boxes.
+Each packing result includes two visualization options:
 
-**Features:**
+### Option 1: Data URI (Instant Preview)
+Copy the `visualization_data_uri` value from the response and paste it directly into your browser's address bar. The 3D visualization will load instantly without requiring any server.
+
+### Option 2: HTML Download (Save Locally)
+Copy the `visualization_html` value, save it as a `.html` file on your computer, and open it with your browser. This allows you to save the visualization for later reference.
+
+**Visualization Features:**
 - **Interactive Controls**: Rotate, pan, and zoom the 3D scene
 - **Color-coded Items**: Each item has a unique color for easy identification
-- **Detailed Stats**: View box count, item count, and utilization
-- **Professional UI**: Modern, responsive design
+- **Detailed Stats**: View box count, item count, and utilization percentage
+- **Professional UI**: Modern, responsive design with dark theme
 
 **Controls:**
 - **Left Click + Drag**: Rotate the view
@@ -230,7 +238,7 @@ The API uses an advanced 3D bin packing algorithm with the following features:
 2. **Use Realistic Dimensions**: Ensure all measurements are in the same unit (e.g., cm)
 3. **Consider Weight Limits**: This API optimizes for volume only, not weight
 4. **Check Unpacked Items**: Review the `unpacked_items` array for items that didn't fit
-5. **Visualize Results**: Use the visualization URL to verify packing accuracy
+5. **Visualize Results**: Use the visualization data to verify packing accuracy
 
 ## 📝 Example Code
 
@@ -255,6 +263,7 @@ curl -X POST https://api.rapidapi.com/pack \
 
 ```python
 import requests
+import json
 
 url = "https://api.rapidapi.com/pack"
 headers = {
@@ -275,13 +284,21 @@ response = requests.post(url, json=payload, headers=headers)
 result = response.json()
 
 print(f"Utilization: {result['utilization_percent']}%")
-print(f"Visualization: {result['visualization_url']}")
+
+# Option 1: Print the data URI for browser preview
+print(f"Visualization Data URI: {result['visualization_data_uri'][:50]}...")
+
+# Option 2: Save HTML to file
+with open('visualization.html', 'w') as f:
+    f.write(result['visualization_html'])
+print("Visualization saved to visualization.html")
 ```
 
 ### JavaScript (Node.js)
 
 ```javascript
 const axios = require('axios');
+const fs = require('fs');
 
 const options = {
   method: 'POST',
@@ -304,7 +321,13 @@ const options = {
 axios.request(options)
   .then(response => {
     console.log(`Utilization: ${response.data.utilization_percent}%`);
-    console.log(`Visualization: ${response.data.visualization_url}`);
+    
+    // Option 1: Log data URI
+    console.log(`Visualization Data URI: ${response.data.visualization_data_uri.substring(0, 50)}...`);
+    
+    // Option 2: Save HTML to file
+    fs.writeFileSync('visualization.html', response.data.visualization_html);
+    console.log('Visualization saved to visualization.html');
   })
   .catch(error => console.error(error));
 ```
@@ -320,8 +343,10 @@ A: Yes! The algorithm automatically tries all 6 possible rotations for each item
 **Q: What if not all items fit?**  
 A: Items that don't fit are returned in the `unpacked_items` array. Consider providing larger boxes.
 
-**Q: How long are visualizations available?**  
-A: Visualizations are available for the duration of your session. Save the URL if you need to reference it later.
+**Q: How do I view the visualization?**  
+A: You have two options:
+1. Copy the `visualization_data_uri` and paste it into your browser's address bar
+2. Copy the `visualization_html`, save it as a `.html` file, and open it with your browser
 
 **Q: Is there a limit on the number of items or boxes?**  
 A: For optimal performance, we recommend keeping requests under 1000 items and 50 box types.

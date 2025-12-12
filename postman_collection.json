@@ -1,0 +1,150 @@
+{
+  "info": {
+    "name": "3D Bin Packing API",
+    "description": "Optimize your packing with advanced 3D bin packing algorithms. Efficiently pack items of various sizes into containers (boxes) while minimizing wasted space. Perfect for logistics, warehouse management, shipping optimization, and inventory planning.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "3d-bin-packing-api",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Pack Items",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-RapidAPI-Key",
+            "value": "{{rapidapi_key}}",
+            "type": "text",
+            "description": "Your RapidAPI key"
+          },
+          {
+            "key": "X-RapidAPI-Host",
+            "value": "{{rapidapi_host}}",
+            "type": "text",
+            "description": "RapidAPI host for this API"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"items\": [\n    {\n      \"id\": \"item-1\",\n      \"w\": 10,\n      \"h\": 10,\n      \"d\": 10,\n      \"quantity\": 2\n    },\n    {\n      \"id\": \"item-2\",\n      \"w\": 20,\n      \"h\": 20,\n      \"d\": 20,\n      \"quantity\": 1\n    }\n  ],\n  \"boxes\": [\n    {\n      \"id\": \"small-box\",\n      \"w\": 15,\n      \"h\": 15,\n      \"d\": 15\n    },\n    {\n      \"id\": \"large-box\",\n      \"w\": 30,\n      \"h\": 30,\n      \"d\": 30\n    }\n  ]\n}\n"
+        },
+        "url": {
+          "raw": "{{base_url}}/pack",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "pack"
+          ]
+        },
+        "description": "Pack items into boxes using an optimized 3D bin packing algorithm."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"id\": \"item-1\",\n      \"w\": 10,\n      \"h\": 10,\n      \"d\": 10,\n      \"quantity\": 2\n    },\n    {\n      \"id\": \"item-2\",\n      \"w\": 20,\n      \"h\": 20,\n      \"d\": 20,\n      \"quantity\": 1\n    }\n  ],\n  \"boxes\": [\n    {\n      \"id\": \"small-box\",\n      \"w\": 15,\n      \"h\": 15,\n      \"d\": 15\n    },\n    {\n      \"id\": \"large-box\",\n      \"w\": 30,\n      \"h\": 30,\n      \"d\": 30\n    }\n  ]\n}\n"
+            },
+            "url": {
+              "raw": "{{base_url}}/pack",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "pack"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"packed_boxes\": [\n    {\n      \"box_id\": \"large-box\",\n      \"contents\": [\n        {\n          \"item_id\": \"item-2\",\n          \"x\": 0,\n          \"y\": 0,\n          \"z\": 0,\n          \"w\": 20,\n          \"h\": 20,\n          \"d\": 20\n        },\n        {\n          \"item_id\": \"item-1\",\n          \"x\": 0,\n          \"y\": 0,\n          \"z\": 20,\n          \"w\": 10,\n          \"h\": 10,\n          \"d\": 10\n        },\n        {\n          \"item_id\": \"item-1\",\n          \"x\": 0,\n          \"y\": 10,\n          \"z\": 20,\n          \"w\": 10,\n          \"h\": 10,\n          \"d\": 10\n        }\n      ]\n    }\n  ],\n  \"unpacked_items\": [],\n  \"total_volume\": 27000,\n  \"utilization_percent\": 25.93,\n  \"visualization_data_uri\": \"data:text/html;base64,PCFET0NUWVBFIGh0bWwgbGFuZz0iZW4iPjxoZWFkPi4uLjwvaGVhZD48Ym9keT4uLi48L2JvZHk+PC9odG1sPg==\",\n  \"visualization_html\": \"<!DOCTYPE html>...[Full HTML content here]\"\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "View Visualization (from response)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "data:text/html;base64,PCFET0NUWVBFIGh0bWw+...",
+          "protocol": "data",
+          "host": [
+            "text",
+            "html",
+            "base64"
+          ]
+        },
+        "description": "To view the 3D visualization:\n1. Copy the 'visualization_data_uri' value from the Pack response\n2. Paste it into your browser's address bar\n3. Press Enter to view the interactive 3D visualization\n\nAlternatively, copy the 'visualization_html' value and save it as an .html file to open locally."
+      },
+      "response": [
+        {
+          "name": "3D Visualization Page",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "data:text/html;base64,PCFET0NUWVBFIGh0bWw+...",
+              "protocol": "data"
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "html",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/html; charset=utf-8"
+            }
+          ],
+          "cookie": [],
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>3D Packing Result</title>\n    <!-- Interactive 3D visualization using Three.js -->\n</head>\n<body>\n    <!-- 3D scene with boxes and items -->\n    <!-- Features: Rotate (Left Drag), Pan (Right Drag), Zoom (Scroll) -->\n</body>\n</html>"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://3d-bin-packing-api.p.rapidapi.com",
+      "type": "string",
+      "description": "Base URL of the API"
+    },
+    {
+      "key": "rapidapi_key",
+      "value": "your-rapidapi-key-here",
+      "type": "string",
+      "description": "Your RapidAPI subscription key"
+    },
+    {
+      "key": "rapidapi_host",
+      "value": "3d-bin-packing-api.p.rapidapi.com",
+      "type": "string",
+      "description": "RapidAPI host for this API"
+    }
+  ]
+}
+

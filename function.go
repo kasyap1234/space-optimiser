@@ -2,20 +2,16 @@ package main
 
 import (
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"io/fs"
 	"net/http"
-	"strings"
-	"sync"
 
 	"github.com/google/uuid"
 )
 
 //go:embed static/*
 var staticFiles embed.FS
-
-// visualizations stores visualization HTML content by ID.
-var visualizations sync.Map
 
 // PackRequest defines the input structure for the packing API.
 type PackRequest struct {
@@ -25,11 +21,12 @@ type PackRequest struct {
 
 // PackResponse defines the output structure for the packing API.
 type PackResponse struct {
-	PackedBoxes      []PackedBox `json:"packed_boxes"`
-	UnpackedItems    []InputItem `json:"unpacked_items"`
-	TotalVolume      int         `json:"total_volume"`
-	Utilization      float64     `json:"utilization_percent"`
-	VisualizationURL string      `json:"visualization_url,omitempty"`
+	PackedBoxes          []PackedBox `json:"packed_boxes"`
+	UnpackedItems        []InputItem `json:"unpacked_items"`
+	TotalVolume          int         `json:"total_volume"`
+	Utilization          float64     `json:"utilization_percent"`
+	VisualizationDataURI string      `json:"visualization_data_uri"`
+	VisualizationHTML    string      `json:"visualization_html"`
 }
 
 // Packer is the HTTP handler entry point.
@@ -44,8 +41,6 @@ func Packer(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.URL.Path == "/pack" && r.Method == http.MethodPost:
 		handlePack(w, r)
-	case strings.HasPrefix(r.URL.Path, "/visualize/"):
-		handleVisualization(w, r)
 	default:
 		handleStatic(w, r)
 	}
@@ -90,61 +85,34 @@ func handlePack(w http.ResponseWriter, r *http.Request) {
 		utilization = float64(totalItemVolume) / float64(totalBoxVolume) * 100
 	}
 
+	// Generate visualization HTML
 	vizID := uuid.New().String()
-	vizURL := buildVisualizationURL(r, vizID, req.Boxes, packedBoxes)
-
-	resp := PackResponse{
-		PackedBoxes:      packedBoxes,
-		UnpackedItems:    unpackedItems,
-		TotalVolume:      totalBoxVolume,
-		Utilization:      utilization,
-		VisualizationURL: vizURL,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
-}
-
-func buildVisualizationURL(r *http.Request, vizID string, boxes []InputBox, packedBoxes []PackedBox) string {
 	vizData := VisualizationData{
 		PackedBoxes: packedBoxes,
-		Boxes:       boxes,
+		Boxes:       req.Boxes,
 		RequestID:   vizID,
 	}
 
 	vizHTML, err := GenerateVisualizationHTML(vizData)
 	if err != nil {
-		return ""
-	}
-
-	visualizations.Store(vizID, vizHTML)
-
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	host := r.Host
-	if host == "" {
-		host = "localhost:8080"
-	}
-	return scheme + "://" + host + "/visualize/" + vizID
-}
-
-func handleVisualization(w http.ResponseWriter, r *http.Request) {
-	vizID := strings.TrimPrefix(r.URL.Path, "/visualize/")
-	if vizID == "" {
-		http.Error(w, "Invalid visualization ID", http.StatusBadRequest)
+		http.Error(w, "Failed to generate visualization", http.StatusInternalServerError)
 		return
 	}
 
-	htmlContent, ok := visualizations.Load(vizID)
-	if !ok {
-		http.Error(w, "Visualization not found or expired", http.StatusNotFound)
-		return
+	// Create data URI (base64 encoded)
+	vizDataURI := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(vizHTML))
+
+	resp := PackResponse{
+		PackedBoxes:          packedBoxes,
+		UnpackedItems:        unpackedItems,
+		TotalVolume:          totalBoxVolume,
+		Utilization:          utilization,
+		VisualizationDataURI: vizDataURI,
+		VisualizationHTML:    vizHTML,
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(htmlContent.(string)))
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func handleStatic(w http.ResponseWriter, r *http.Request) {
